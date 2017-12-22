@@ -1,6 +1,7 @@
 from time import time
 
 import click
+from joblib import Parallel, delayed
 from sklearn_utils.utils import SkUtilsIO
 from metabolitics.preprocessing import MetaboliticsPipeline
 
@@ -10,6 +11,10 @@ from metabolitics_sampling import MetaboliticsSampling
 @click.group()
 def cli():
     pass
+
+def transform(x):
+    analyzer = MetaboliticsSampling('recon2')
+    return analyzer.sampling_analysis(x)
 
 
 @cli.command()
@@ -21,11 +26,11 @@ def save_sampling_on_bc():
     pipe = MetaboliticsPipeline(['naming', 'metabolic-standard-scaler'])
     X_t = pipe.fit_transform(X, y)
 
-    def transform(x):
-        analyzer = MetaboliticsSampling('recon2').copy()
-        return analyzer.sampling_analysis(x)
 
-    X_sampled = Parallel(n_jobs=8)(delayed(transform)(x) for x in X_t)
+    X_sampled = list()
+    for x in X_t:
+        x_sample = transform(x)
+        X_sampled.append(x_sample)
 
-    SkUtilsIO('../outputs/sampling_anaylsis_bc.json', gz=True) \
-        .to_json(X_sampled, y)
+        SkUtilsIO('../outputs/sampling_anaylsis_bc.json', gz=True) \
+            .to_json(X_sampled, y)
