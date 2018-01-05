@@ -28,7 +28,7 @@ def save_sampling_on_bc():
     X_t = pipe.fit_transform(X, y)
 
     with open('../outputs/sampling_anaylsis_bc.json', 'w') as f:
-        for x, label in zip(X_t, y):
+        for x, label in list(zip(X_t, y))[60:]:
             d = to_flat_df(transform(x))
             f.write('%s\n' % json.dumps([label, d]))
 
