@@ -1,12 +1,13 @@
-from typing import List
+from typing import List, Dict
+from itertools import chain
 
 import numpy as np
-from scipy.stats import ks_2samp
-from sklearn.base import TransformerMixin
-from sklearn.neighbors.kde import KernelDensity
-from sklearn_utils.utils import filter_by_label
 from cobra.flux_analysis.sampling import OptGPSampler
+from sklearn_utils.utils import filter_by_label
 from metabolitics.analysis import MetaboliticsAnalysis
+from metabolitics.preprocessing import ReactionDiffTransformer
+
+from utils import sum_probabilities, is_dict_finite
 
 
 class MetaboliticsSampling(MetaboliticsAnalysis):
@@ -16,35 +17,53 @@ class MetaboliticsSampling(MetaboliticsAnalysis):
         return OptGPSampler(self.model, processes=8).sample(10000)
 
 
-class SamplingDiffTransformer(TransformerMixin):
+ReactionCdf = Dict[str, Dict[int, int]]
+
+
+class SamplingDiffTransformer(ReactionDiffTransformer):
     '''Converts sampled kde functions to diff scores.'''
 
-    def __init__(self, reference_label, n_sample, bandwidth=1):
-        """
-        :param reference_label: the label diff will be performed by.
-        :param n_sample: number of sample will be generated from KDEs.
-        :param bandwidth: bandwidth of kde (for more check sklearn doc).
-        """
-        self.reference_label = reference_label
-        self.n_sample = n_sample
-        self.bandwidth = bandwidth
-
-    def fit(self, X: List[KernelDensity], y):
+    def fit(self, X: List[ReactionCdf], y):
         '''
-        :param X: list of sklearn KDE objects
+        :param X: list of reaction cdfs.
         :param y: list of labels
         '''
-        ref_kdes = filter_by_label(X, y, self.reference_label)[0]
-        self.ref_kde = KernelDensity(bandwidth=self.bandwidth).fit(
-            np.vstack(kde.sample(self.n_sample) for kde in ref_kdes))
+        self.ref_ = dict()
+
+        healthies = filter_by_label(X, y, self.reference_label)[0]
+
+        for r in self.model.reactions:
+            # TODO: investigate why there is nan values in there
+            reaction_hists = [
+                x[r.id]
+                for x in healthies
+                if r.id in x and is_dict_finite(x[r.id])
+            ]
+
+            if reaction_hists:
+                self.ref_[r.id] = sum_probabilities(reaction_hists)
+
         return self
 
-    def transform(self, X: List[KernelDensity]):
+    def transform(self, X, y=None):
         '''
         :param X: list of sklearn KDE objects
         '''
-        samples = map(lambda kde: kde.sample(self.n_sample), X)
-        ref_sample = self.ref_kde.sample(self.n_sample)
+        return [{
+            reaction.id: self._reaction_cdf_diff(reaction.id, x)
+            for reaction in self.model.reactions
+            if reaction.id in x and reaction.id in self.ref_ and is_dict_finite(x[reaction.id])
+        } for x in X]
 
-        return [[ks_2samp(*t).statistic for t in zip(ref_sample.T, x.T)]
-                for x in samples]
+    def _reaction_cdf_diff(self, reaction_id: str, x: Dict):
+        r_ref = self.ref_[reaction_id]
+        r_x = x[reaction_id]
+        cdf1, cdf2, diff = 0, 0, 0
+
+        for k in sorted(set(chain(r_x.keys(), r_ref.keys()))):
+            cdf1 += r_x.get(k, 0)
+            cdf2 += r_ref.get(k, 0)
+            diff += cdf2 - cdf1
+
+        assert np.isfinite(diff)
+        return diff
