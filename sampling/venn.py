@@ -118,7 +118,10 @@ def get_labels(data, fill=["number"]):
         data_size = len(s_all)
         for k in set_collections:
             labels[k] += "(%.1f%%)" % (100.0 * len(set_collections[k]) / data_size)
-
+    if 'text' in fill:
+        for k in set_collections:
+            labels[k] += '\n'.join(set_collections[k])
+            
     return labels
 
 def venn2(labels, names=['A', 'B'], **options):
