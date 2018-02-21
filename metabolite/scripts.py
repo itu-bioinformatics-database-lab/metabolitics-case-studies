@@ -63,7 +63,7 @@ def bc_performance():
 @cli.command()
 def analysis_mwtab():
 
-    mwtab_to_df('../datasets/diseases/crohn.mwtab')
+    df = mwtab_to_df('../datasets/diseases/crohn.mwtab')
 
     import pdb
     pdb.set_trace()
