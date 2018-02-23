@@ -32,13 +32,10 @@ def analysis_and_save_disease(disease_name):
     path = '../datasets/diseases/%s.csv' % disease_name
     X, y = SkUtilsIO(path).from_csv(label_column='labels')
 
+    mapping = json.load(open('../datasets/naming/pubChem-mapping.json'))
     vect = DictVectorizer(sparse=False)
-
-    pipe = FeatureRenaming(
-        json.load(open('../datasets/naming/pubChem-mapping.json')))
-
     pipe = Pipeline([
-        ('naming', MetaboliticsPipeline(['naming'])),
+        ('naming', FeatureRenaming(mapping)),
         ('vect', vect),
         ('std', StandardScaler()),
         ('inv_vec-standard', InverseDictVectorizer(vect)),
