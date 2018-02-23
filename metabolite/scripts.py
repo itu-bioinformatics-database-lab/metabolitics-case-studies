@@ -1,5 +1,11 @@
+import json
+import math
+from collections import defaultdict
+
 import click
 import mwtab
+import pandas as pd
+
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_extraction import DictVectorizer
@@ -7,8 +13,10 @@ from sklearn.model_selection import cross_validate
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
 from sklearn_utils.utils import SkUtilsIO
-from sklearn_utils.preprocessing import InverseDictVectorizer
+from sklearn_utils.preprocessing import InverseDictVectorizer, FeatureRenaming
+
 from metabolitics.preprocessing import MetaboliticsPipeline
+from metabolitics.utils import load_network_model
 
 from utils import mwtab_to_df
 
@@ -19,12 +27,16 @@ def cli():
 
 
 @cli.command()
-def save_bc_with_std():
-    X, y = SkUtilsIO('../datasets/diseases/BC.csv').from_csv(
-        label_column='stage')
-    y = ['healthy' if i == 'h' else 'bc' for i in y]
+@click.argument('disease_name')
+def analysis_and_save_disease(disease_name):
+    path = '../datasets/diseases/%s.csv' % disease_name
+    X, y = SkUtilsIO(path).from_csv(label_column='labels')
 
     vect = DictVectorizer(sparse=False)
+
+    pipe = FeatureRenaming(
+        json.load(open('../datasets/naming/pubChem-mapping.json')))
+
     pipe = Pipeline([
         ('naming', MetaboliticsPipeline(['naming'])),
         ('vect', vect),
@@ -34,7 +46,7 @@ def save_bc_with_std():
     ])
     X_t = pipe.fit_transform(X, y)
 
-    SkUtilsIO('../outputs/bc_analysis_with_std.json',
+    SkUtilsIO('../outputs/%s_analysis_with_std.json' % disease_name,
               gz=True).to_json(X_t, y)
 
 
@@ -62,8 +74,31 @@ def bc_performance():
 
 @cli.command()
 def analysis_mwtab():
-
     df = mwtab_to_df('../datasets/diseases/crohn.mwtab')
+    df.to_csv('../outputs/crohn.csv', index=False)
 
-    import pdb
-    pdb.set_trace()
+
+@cli.command()
+def parse_naming_files():
+
+    df = pd.read_csv(
+        '../datasets/naming/recon-store-metabolites.tsv', sep='\t')
+
+    model = load_network_model('recon2')
+    mappings = defaultdict(dict)
+
+    for i, row in df.iterrows():
+        m = '%s_c' % row['abbreviation']
+
+        if m not in model.metabolites:
+            continue
+
+        for k in row.keys()[1:]:
+            if type(row[k]) == str:
+                mappings[k][row[k]] = m
+
+    for k, v in mappings.items():
+        db = k.replace('Id', '')
+
+        with open('../outputs/%s-mapping.json' % db, 'w') as f:
+            json.dump(v, f)
