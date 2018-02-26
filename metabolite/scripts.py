@@ -32,14 +32,10 @@ def analysis_and_save_disease(disease_name):
     path = '../datasets/diseases/%s.csv' % disease_name
     X, y = SkUtilsIO(path).from_csv(label_column='labels')
 
-    mapping = json.load(open('../datasets/naming/pubChem-mapping.json'))
-    vect = DictVectorizer(sparse=False)
-    pipe = Pipeline([
-        ('naming', FeatureRenaming(mapping)),
-        ('vect', vect),
-        ('std', StandardScaler()),
-        ('inv_vec-standard', InverseDictVectorizer(vect)),
-        ('fva', MetaboliticsPipeline(['metabolitics-transformer'])),
+    pipe = MetaboliticsPipeline([
+        'metabolite-name-matching',
+        'standard-scaler',
+        'metabolitics-transformer'
     ])
     X_t = pipe.fit_transform(X, y)
 
@@ -55,7 +51,7 @@ def bc_performance():
     pipe = Pipeline([
         ('metabolitics', MetaboliticsPipeline([
             'reaction-diff',
-            'feature-selection',
+            # 'feature-selection',
             'pathway_transformer'
         ])),
         ('vect', DictVectorizer(sparse=False)),
@@ -63,7 +59,7 @@ def bc_performance():
         ('clf', LogisticRegression(C=0.3e-6, random_state=43))
     ])
 
-    cv_score = cross_validate(pipe, X, y, cv=10, n_jobs=-1, scoring='f1_micro')
+    cv_score = cross_validate(pipe, X, y, cv=10, n_jobs=1, scoring='f1_micro')
 
     import pdb
     pdb.set_trace()
