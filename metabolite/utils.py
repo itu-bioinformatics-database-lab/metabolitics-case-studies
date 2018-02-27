@@ -14,8 +14,8 @@ def mwtab_to_df(path, id_mapping='PubChem ID'):
     f = next(mwtab.read_files(path))
 
     id_factor_mapping = {
-        i['local_sample_id']: i['factors'].split(':')[1]
-        if i['factors'] != 'Type:Control' else 'healthy'
+        i['local_sample_id']: i['factors'].split('|')[1].split(':')[1].strip()
+        if i['factors'].split('|')[1].strip() != 'Factor3:Healthy' else 'healthy'
         for i in f['SUBJECT_SAMPLE_FACTORS']['SUBJECT_SAMPLE_FACTORS']
     }
 
@@ -26,9 +26,9 @@ def mwtab_to_df(path, id_mapping='PubChem ID'):
     }
 
     metabolite_measurements = dict()
-    for i in f['MS_METABOLITE_DATA']['MS_METABOLITE_DATA_START']['DATA']:
-        m = i['metabolite_name']
-        del i['metabolite_name']
+    for i in f['MS_METABOLITE_DATA']['MS_METABOLITE_DATA_START']['DATA'][1:]:
+        m = i['']
+        del i['']
         if id_mapping:
             if m in metabolites_names:
                 metabolite_measurements[metabolites_names[m]] = i
@@ -40,4 +40,4 @@ def mwtab_to_df(path, id_mapping='PubChem ID'):
     df = df.reset_index()
     del df['index']
 
-    return df
+    return df[df['labels'] != 'NA']
