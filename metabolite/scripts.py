@@ -69,7 +69,7 @@ def bc_performance():
 @click.argument('disease_name')
 def analysis_mwtab(disease_name):
     df = mwtab_to_df('../datasets/diseases/%s.mwtab' % disease_name)
-    df.to_csv('../outputs/%s.csv' % disease_name, index=False)
+    df.to_csv('../outputs/%s_serum.csv' % disease_name, index=False)
 
 
 @cli.command()

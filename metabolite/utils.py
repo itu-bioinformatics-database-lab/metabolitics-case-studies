@@ -13,11 +13,13 @@ def mwtab_to_df(path, id_mapping='PubChem ID'):
     '''
     f = next(mwtab.read_files(path))
 
-    id_factor_mapping = {
-        i['local_sample_id']: i['factors'].split('|')[1].split(':')[1].strip()
-        if i['factors'].split('|')[1].strip() != 'Factor3:Healthy' else 'healthy'
-        for i in f['SUBJECT_SAMPLE_FACTORS']['SUBJECT_SAMPLE_FACTORS']
-    }
+    id_factor_mapping = dict()
+    for i in f['SUBJECT_SAMPLE_FACTORS']['SUBJECT_SAMPLE_FACTORS']:
+        id = i['local_sample_id']
+        label = i['factors'].split('|')[1].split(':')[1].strip()
+        dataset = i['factors'].split('|')[0].split(':')[1].strip()
+        if dataset == 'Serum':
+            id_factor_mapping[id] = label if label != 'Healthy' else 'healthy'
 
     metabolites_names = {
         i['metabolite_name']: i[id_mapping]
@@ -36,7 +38,12 @@ def mwtab_to_df(path, id_mapping='PubChem ID'):
             metabolite_measurements[m] = i
 
     df = pd.DataFrame(metabolite_measurements, dtype=float)
-    df.insert(0, 'labels', [id_factor_mapping[i] for i in df.index])
+    df = df[[i in id_factor_mapping for i in df.index]]
+
+    labels = [id_factor_mapping[i] for i in df.index]
+    labels = [i if i != 'Adenocarcnoma' else 'Adenocarcinoma' for i in labels]
+
+    df.insert(0, 'labels', labels)
     df = df.reset_index()
     del df['index']
 
