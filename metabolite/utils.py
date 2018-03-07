@@ -28,6 +28,7 @@ def mwtab_to_df(path, id_mapping='pubchem_id'):
     }
 
     metabolite_measurements = dict()
+
     for i in f['MS_METABOLITE_DATA']['MS_METABOLITE_DATA_START']['DATA']:
         m = i['metabolite_name']
         del i['metabolite_name']
@@ -39,7 +40,12 @@ def mwtab_to_df(path, id_mapping='pubchem_id'):
             metabolite_measurements[m] = i
 
     df = pd.DataFrame(metabolite_measurements, dtype=float)
-    df.insert(0, 'labels', [id_factor_mapping[i] for i in df.index])
+    df = df[[i in id_factor_mapping for i in df.index]]
+
+    labels = [id_factor_mapping[i] for i in df.index]
+    labels = [i if i != 'Adenocarcnoma' else 'Adenocarcinoma' for i in labels]
+
+    df.insert(0, 'labels', labels)
     df = df.reset_index()
     del df['index']
 

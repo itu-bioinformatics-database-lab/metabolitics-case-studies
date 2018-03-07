@@ -1,19 +1,15 @@
 import json
-import math
 from collections import defaultdict
 
 import click
-import mwtab
 import pandas as pd
 
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
 from sklearn.feature_extraction import DictVectorizer
-from sklearn.model_selection import cross_validate
+from sklearn.model_selection import cross_validate, StratifiedKFold
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
 from sklearn_utils.utils import SkUtilsIO
-from sklearn_utils.preprocessing import InverseDictVectorizer, FeatureRenaming
 
 from metabolitics.preprocessing import MetaboliticsPipeline
 from metabolitics.utils import load_network_model
@@ -35,7 +31,7 @@ def analysis_and_save_disease(disease_name):
     pipe = MetaboliticsPipeline([
         'metabolite-name-matching',
         'standard-scaler',
-        'metabolitics-transformer'
+        'metabolitics-transformer',
     ])
     X_t = pipe.fit_transform(X, y)
 
@@ -52,14 +48,18 @@ def bc_performance():
         ('metabolitics', MetaboliticsPipeline([
             'reaction-diff',
             # 'feature-selection',
-            'pathway_transformer'
+            'pathway-transformer',
         ])),
         ('vect', DictVectorizer(sparse=False)),
         ('pca', PCA()),
         ('clf', LogisticRegression(C=0.3e-6, random_state=43))
     ])
 
-    cv_score = cross_validate(pipe, X, y, cv=10, n_jobs=1, scoring='f1_micro')
+    kf = StratifiedKFold(n_splits=10, random_state=43)
+
+    cv_score = cross_validate(pipe, X, y, cv=kf, n_jobs=-1, scoring='f1_micro')
+
+    print(cv_score)
 
     import pdb
     pdb.set_trace()
