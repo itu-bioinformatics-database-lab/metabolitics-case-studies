@@ -1,9 +1,11 @@
 import pandas as pd
+import numpy as np
+
 import mwtab
 from sklearn_utils.utils import SkUtilsIO
 
 
-def mwtab_to_df(path, id_mapping='PubChem ID'):
+def mwtab_to_df(path, id_mapping='pubchem_id'):
     '''
     Parse mwtab file to df
 
@@ -14,21 +16,22 @@ def mwtab_to_df(path, id_mapping='PubChem ID'):
     f = next(mwtab.read_files(path))
 
     id_factor_mapping = {
-        i['local_sample_id']: i['factors'].split(':')[1]
-        if i['factors'] != 'Type:Control' else 'healthy'
+        i['local_sample_id']: i['factors'].split('-')[1].strip()
+        if not i['factors'].startswith('Source:Method Blanks') else 'healthy'
         for i in f['SUBJECT_SAMPLE_FACTORS']['SUBJECT_SAMPLE_FACTORS']
     }
 
     metabolites_names = {
         i['metabolite_name']: i[id_mapping]
         for i in f['METABOLITES']['METABOLITES_START']['DATA']
-        if id_mapping in i
+        if id_mapping in i and i[id_mapping]
     }
 
     metabolite_measurements = dict()
     for i in f['MS_METABOLITE_DATA']['MS_METABOLITE_DATA_START']['DATA']:
         m = i['metabolite_name']
         del i['metabolite_name']
+
         if id_mapping:
             if m in metabolites_names:
                 metabolite_measurements[metabolites_names[m]] = i
@@ -40,4 +43,4 @@ def mwtab_to_df(path, id_mapping='PubChem ID'):
     df = df.reset_index()
     del df['index']
 
-    return df
+    return df.replace('', np.nan).dropna(axis=1, how='any')

@@ -66,9 +66,10 @@ def bc_performance():
 
 
 @cli.command()
-def analysis_mwtab():
-    df = mwtab_to_df('../datasets/diseases/crohn.mwtab')
-    df.to_csv('../outputs/crohn.csv', index=False)
+@click.argument('disease_name')
+def analysis_mwtab(disease_name):
+    df = mwtab_to_df('../datasets/diseases/%s.mwtab' % disease_name)
+    df.to_csv('../outputs/%s.csv' % disease_name, index=False)
 
 
 @cli.command()
