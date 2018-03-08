@@ -1,7 +1,10 @@
 import json
+from time import time
+import multiprocessing
 from collections import defaultdict
 
 import click
+import numpy as np
 import pandas as pd
 
 from sklearn.pipeline import Pipeline
@@ -11,7 +14,7 @@ from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
 from sklearn_utils.utils import SkUtilsIO
 
-from metabolitics.preprocessing import MetaboliticsPipeline
+from metabolitics.preprocessing import MetaboliticsPipeline, MetaboliticsTransformer
 from metabolitics.utils import load_network_model
 
 from utils import mwtab_to_df
@@ -96,3 +99,51 @@ def parse_naming_files():
 
         with open('../outputs/%s-mapping.json' % db, 'w') as f:
             json.dump(v, f)
+
+
+@cli.command()
+def coverage_test_generate():
+
+    model = load_network_model('recon2')
+    n = multiprocessing.cpu_count()
+
+    metabolite_ids = list(map(lambda x: x.id, model.metabolites))
+    num_metabolite = len(metabolite_ids)
+
+    X = [
+        dict(zip(metabolite_ids, np.random.randn(len(metabolite_ids))))
+        for _ in range(n)
+    ]
+
+    df = pd.DataFrame.from_records(X)
+    y = np.random.choice(['h', 'x'], n)
+
+    transformer = MetaboliticsTransformer(model)
+
+    t = time()
+    X_ref = transformer.fit_transform(X, y)
+
+    SkUtilsIO('../outputs/coverage_test_#coverage=1.json',
+              gz=True).to_json(X_ref, y)
+    print('Ref done!')
+    print(time() - t)
+
+    for i in range(100):
+
+        for coverage in np.linspace(0.95, 0.05, 19):
+
+            selected_metabolite = np.random.choice(
+                df.columns,
+                int(np.ceil(num_metabolite * coverage)),
+                replace=False)
+
+            t = time()
+            X_selected = df[selected_metabolite].to_dict('records')
+            X_t = transformer.fit_transform(X_selected, y)
+            print(time() - t)
+
+            name = 'coverage=%f#iteration=%d' % (coverage, i)
+
+            SkUtilsIO('../outputs/coverage_test_#%s.json' %
+                      name, gz=True).to_json(X_t, y)
+            print('%s done!' % name)
