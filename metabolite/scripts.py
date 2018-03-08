@@ -32,7 +32,7 @@ def analysis_and_save_disease(disease_name):
     X, y = SkUtilsIO(path).from_csv(label_column='labels')
 
     pipe = MetaboliticsPipeline([
-        'metabolite-name-matching',
+        'metabolite-name-mapping',
         'standard-scaler',
         'metabolitics-transformer',
     ])
