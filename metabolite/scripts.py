@@ -6,6 +6,8 @@ from collections import defaultdict
 import click
 import numpy as np
 import pandas as pd
+from scipy.spatial.distance import correlation, cosine
+from matplotlib import pyplot as plt
 
 from sklearn.pipeline import Pipeline
 from sklearn.feature_extraction import DictVectorizer
@@ -150,3 +152,57 @@ def coverage_test_generate():
             SkUtilsIO('../outputs/coverage_test#%s.json' %
                       name, gz=True).to_json(X_t, y)
             print('%s done!' % name)
+
+
+@cli.command()
+def coverage_test_visualize():
+
+    path = '../datasets/coverage_test'
+
+    X, y = SkUtilsIO('%s/coverage_test_#coverage=1.json' %
+                     path, gz=True).from_json()
+    y = [i if i != 'h' else 'healthy'for i in y]
+
+    pipe = Pipeline([
+        ('metabolitics', MetaboliticsPipeline([
+            'reaction-diff',
+            'pathway-transformer',
+        ])),
+        ('vect', DictVectorizer(sparse=False))
+    ])
+    X_ref = pipe.fit_transform(X, y)
+
+    distances = list()
+
+    for i in range(100):
+
+        t_distances = [1]
+
+        for coverage in np.linspace(0.95, 0.05, 19):
+
+            name = 'coverage=%f#iteration=%d' % (coverage, i)
+
+            try:
+                X, _ = SkUtilsIO('%s/coverage_test_#%s.json' %
+                                 (path, name), gz=True).from_json()
+            except FileNotFoundError:
+                break
+
+            X_t = pipe.fit_transform(X, y)
+
+            t_distances.append(1 - np.mean([
+                correlation(X_ref[i], X_t[i]) for i in range(len(X))
+            ]))
+
+            print(t_distances)
+
+        if len(t_distances) > 1:
+            distances.append(t_distances)
+
+    avg_distances = np.mean(distances, axis=0)
+
+    x = np.linspace(0.95, 0.05, 19)[:len(avg_distances)]
+    y = avg_distances
+    plt.plot(y)
+    plt.xticks(range(len(y)), x)
+    plt.show()
