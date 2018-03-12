@@ -118,12 +118,15 @@ def coverage_test_generate():
     df = pd.DataFrame.from_records(X)
     y = np.random.choice(['h', 'x'], n)
 
+    SkUtilsIO('../outputs/coverage_test#metabolites.json',
+              gz=True).to_json(X, y)
+
     transformer = MetaboliticsTransformer(model)
 
     t = time()
     X_ref = transformer.fit_transform(X, y)
 
-    SkUtilsIO('../outputs/coverage_test_#coverage=1.json',
+    SkUtilsIO('../outputs/coverage_test#coverage=1.json',
               gz=True).to_json(X_ref, y)
     print('Ref done!')
     print(time() - t)
@@ -144,6 +147,6 @@ def coverage_test_generate():
 
             name = 'coverage=%f#iteration=%d' % (coverage, i)
 
-            SkUtilsIO('../outputs/coverage_test_#%s.json' %
+            SkUtilsIO('../outputs/coverage_test#%s.json' %
                       name, gz=True).to_json(X_t, y)
             print('%s done!' % name)
