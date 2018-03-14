@@ -105,35 +105,44 @@ def parse_naming_files():
 def coverage_test_generate():
 
     model = load_network_model('recon2')
-    n = multiprocessing.cpu_count()
+    # n = multiprocessing.cpu_count()
 
     metabolite_ids = list(map(lambda x: x.id, model.metabolites))
     num_metabolite = len(metabolite_ids)
 
-    X = [
-        dict(zip(metabolite_ids, np.random.randn(len(metabolite_ids))))
-        for _ in range(n)
-    ]
+    # X = [
+    #     dict(zip(metabolite_ids, np.random.randn(len(metabolite_ids))))
+    #     for _ in range(n)
+    # ]
 
+    # df = pd.DataFrame.from_records(X)
+    # y = np.random.choice(['h', 'x'], n)
+
+    # SkUtilsIO('../outputs/coverage_test#metabolites.json',
+    #           gz=True).to_json(X, y)
+
+    X, y = SkUtilsIO('../datasets/coverage_test/coverage_test#metabolites.json',
+              gz=True).from_json()
+    
     df = pd.DataFrame.from_records(X)
-    y = np.random.choice(['h', 'x'], n)
-
-    SkUtilsIO('../outputs/coverage_test#metabolites.json',
-              gz=True).to_json(X, y)
-
+    
     transformer = MetaboliticsTransformer(model)
 
     t = time()
-    X_ref = transformer.fit_transform(X, y)
+    # X_ref = transformer.fit_transform(X, y)
 
-    SkUtilsIO('../outputs/coverage_test#coverage=1.json',
-              gz=True).to_json(X_ref, y)
+    # SkUtilsIO('../outputs/coverage_test#coverage=1.json',
+    #           gz=True).to_json(X_ref, y)
+
+    X_ref, _ = SkUtilsIO('../datasets/coverage_test/coverage_test#coverage=1.json',
+              gz=True).from_json()
+
     print('Ref done!')
     print(time() - t)
 
     for i in range(100):
 
-        for coverage in np.linspace(0.95, 0.05, 19):
+        for coverage in np.linspace(0.15, 0.05, 3):
 
             selected_metabolite = np.random.choice(
                 df.columns,
