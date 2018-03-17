@@ -12,14 +12,16 @@ from matplotlib import pyplot as plt
 from sklearn.pipeline import Pipeline
 from sklearn.feature_extraction import DictVectorizer
 from sklearn.model_selection import cross_validate, StratifiedKFold
+from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
-from sklearn_utils.utils import SkUtilsIO
+from sklearn_utils.utils import SkUtilsIO, map_dict_list
+from sklearn_utils.preprocessing import DictInput, FeatureRenaming
 
 from metabolitics.preprocessing import MetaboliticsPipeline, MetaboliticsTransformer
-from metabolitics.utils import load_network_model
+from metabolitics.utils import load_network_model, load_metabolite_mapping
 
-from utils import mwtab_to_df
+from utils import mwtab_to_df, generate_complete_data
 
 
 @click.group()
@@ -104,51 +106,54 @@ def parse_naming_files():
 
 
 @cli.command()
+def coverage_test_metabolites():
+
+    model = load_network_model('recon2')
+
+    X, y = SkUtilsIO('../datasets/diseases/BC.csv') \
+        .from_csv(label_column='stage')
+
+    X = FeatureRenaming(load_metabolite_mapping('toy')) \
+        .fit_transform(X, y)
+
+    X, y = generate_complete_data(model, X, y)
+    X = DictInput(StandardScaler()).fit_transform(X, y)
+
+    X = map_dict_list(
+        X, value_func=lambda k, v: v + np.random.normal(0, 0.1))
+
+    SkUtilsIO('../outputs/coverage_test#metabolites.json',
+              gz=True).to_json(X, y)
+
+
+@cli.command()
 def coverage_test_generate():
 
     model = load_network_model('recon2')
-    # n = multiprocessing.cpu_count()
 
-    metabolite_ids = list(map(lambda x: x.id, model.metabolites))
-    num_metabolite = len(metabolite_ids)
+    X, y = SkUtilsIO(
+        '../datasets/coverage_test/coverage_test#metabolites.json',
+        gz=True).from_json()
 
-    # X = [
-    #     dict(zip(metabolite_ids, np.random.randn(len(metabolite_ids))))
-    #     for _ in range(n)
-    # ]
-
-    # df = pd.DataFrame.from_records(X)
-    # y = np.random.choice(['h', 'x'], n)
-
-    # SkUtilsIO('../outputs/coverage_test#metabolites.json',
-    #           gz=True).to_json(X, y)
-
-    X, y = SkUtilsIO('../datasets/coverage_test/coverage_test#metabolites.json',
-              gz=True).from_json()
-    
     df = pd.DataFrame.from_records(X)
-    
     transformer = MetaboliticsTransformer(model)
 
     t = time()
-    # X_ref = transformer.fit_transform(X, y)
+    X_ref = transformer.fit_transform(X, y)
 
-    # SkUtilsIO('../outputs/coverage_test#coverage=1.json',
-    #           gz=True).to_json(X_ref, y)
-
-    X_ref, _ = SkUtilsIO('../datasets/coverage_test/coverage_test#coverage=1.json',
-              gz=True).from_json()
+    SkUtilsIO('../outputs/coverage_test#coverage=1.json',
+              gz=True).to_json(X_ref, y)
 
     print('Ref done!')
     print(time() - t)
 
     for i in range(100):
 
-        for coverage in np.linspace(0.15, 0.05, 3):
+        for coverage in np.linspace(0.95, 0.05, 19):
 
             selected_metabolite = np.random.choice(
                 df.columns,
-                int(np.ceil(num_metabolite * coverage)),
+                int(np.ceil(len(model.metabolites) * coverage)),
                 replace=False)
 
             t = time()

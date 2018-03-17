@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 import mwtab
-from sklearn_utils.utils import SkUtilsIO
+import metabolitics.extensions
 
 
 def mwtab_to_df(path, id_mapping='pubchem_id'):
@@ -50,3 +50,26 @@ def mwtab_to_df(path, id_mapping='pubchem_id'):
     del df['index']
 
     return df.replace('', np.nan).dropna(axis=1, how='any')
+
+
+def generate_complete_data(model, X, y):
+
+    def r_id_set(m_id):
+        return set([
+            r.id for r in model.metabolites.get_by_id(m_id).producers()
+        ])
+
+    for i, x in enumerate(X):
+
+        measured_metabolites = set(x.keys())
+
+        unmeasured_metabolites = set([m.id for m in model.metabolites])
+        unmeasured_metabolites -= measured_metabolites
+
+        for m in unmeasured_metabolites:
+            x[m] = x[max(measured_metabolites,
+                         key=lambda k: len(r_id_set(k) & r_id_set(m)))]
+
+        print(i)
+
+    return X
