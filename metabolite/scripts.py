@@ -112,11 +112,13 @@ def coverage_test_metabolites():
 
     X, y = SkUtilsIO('../datasets/diseases/BC.csv') \
         .from_csv(label_column='stage')
+        
+    X, y = X[:24], y[:24]
 
     X = FeatureRenaming(load_metabolite_mapping('toy')) \
         .fit_transform(X, y)
 
-    X, y = generate_complete_data(model, X, y)
+    X = generate_complete_data(model, X, y)
     X = DictInput(StandardScaler()).fit_transform(X, y)
 
     X = map_dict_list(
